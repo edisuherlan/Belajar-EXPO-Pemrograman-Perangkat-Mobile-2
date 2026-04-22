@@ -38,6 +38,8 @@ import { router } from 'expo-router';
 import { useCallback } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 
+import { supabase } from '@/lib/supabase';
+
 /**
  * LogoutScreen — Satu-satunya job: tampilin dialog konfirmasi, terus
  * navigasi sesuai pilihan user (Batal = back, Ya = ke login).
@@ -68,7 +70,12 @@ export default function LogoutScreen() {
           {
             text: 'Ya, Logout',
             style: 'destructive', /* Bisa tampil merah (tindakan "berbahaya"). */
-            onPress: () => router.replace('/login'), /* Ganti stack ke login; user enggak bisa back ke tabs. */
+            onPress: async () => {
+              if (supabase) {
+                await supabase.auth.signOut();
+              }
+              router.replace('/login');
+            },
           },
         ],
         /* Opsi: cancelable = true = user bisa nutup dialog dengan tap di luar (Android).

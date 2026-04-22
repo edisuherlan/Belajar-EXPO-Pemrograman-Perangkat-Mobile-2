@@ -67,29 +67,46 @@ CREATE TRIGGER trg_mahasiswa_updated_at
 -- =============================================================================
 -- Row Level Security (RLS) — WAJIB dipertimbangkan sebelum production
 -- =============================================================================
+-- Satu policy untuk anon DAN authenticated: setelah login Supabase Auth,
+-- request memakai JWT role "authenticated"; sebelum login role "anon".
+-- Tanpa "authenticated", tab Cloud tampil kosong walau data ada di tabel.
+-- =============================================================================
 ALTER TABLE public.mahasiswa ENABLE ROW LEVEL SECURITY;
 
--- Polisi contoh untuk PENGEMBANGAN: anon (kunci public di .env) boleh CRUD.
--- UNTUK PRODUCTION: ganti dengan aturan ketat (auth.uid(), role, dll.).
-CREATE POLICY "dev_anon_select_mahasiswa"
+DROP POLICY IF EXISTS "dev_anon_select_mahasiswa" ON public.mahasiswa;
+DROP POLICY IF EXISTS "dev_anon_insert_mahasiswa" ON public.mahasiswa;
+DROP POLICY IF EXISTS "dev_anon_update_mahasiswa" ON public.mahasiswa;
+DROP POLICY IF EXISTS "dev_anon_delete_mahasiswa" ON public.mahasiswa;
+DROP POLICY IF EXISTS "dev_authenticated_select_mahasiswa" ON public.mahasiswa;
+DROP POLICY IF EXISTS "dev_authenticated_insert_mahasiswa" ON public.mahasiswa;
+DROP POLICY IF EXISTS "dev_authenticated_update_mahasiswa" ON public.mahasiswa;
+DROP POLICY IF EXISTS "dev_authenticated_delete_mahasiswa" ON public.mahasiswa;
+DROP POLICY IF EXISTS "dev_mahasiswa_select_clients" ON public.mahasiswa;
+DROP POLICY IF EXISTS "dev_mahasiswa_insert_clients" ON public.mahasiswa;
+DROP POLICY IF EXISTS "dev_mahasiswa_update_clients" ON public.mahasiswa;
+DROP POLICY IF EXISTS "dev_mahasiswa_delete_clients" ON public.mahasiswa;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.mahasiswa TO anon, authenticated;
+
+CREATE POLICY "dev_mahasiswa_select_clients"
   ON public.mahasiswa FOR SELECT
-  TO anon
+  TO anon, authenticated
   USING (true);
 
-CREATE POLICY "dev_anon_insert_mahasiswa"
+CREATE POLICY "dev_mahasiswa_insert_clients"
   ON public.mahasiswa FOR INSERT
-  TO anon
+  TO anon, authenticated
   WITH CHECK (true);
 
-CREATE POLICY "dev_anon_update_mahasiswa"
+CREATE POLICY "dev_mahasiswa_update_clients"
   ON public.mahasiswa FOR UPDATE
-  TO anon
+  TO anon, authenticated
   USING (true)
   WITH CHECK (true);
 
-CREATE POLICY "dev_anon_delete_mahasiswa"
+CREATE POLICY "dev_mahasiswa_delete_clients"
   ON public.mahasiswa FOR DELETE
-  TO anon
+  TO anon, authenticated
   USING (true);
 
 -- =============================================================================

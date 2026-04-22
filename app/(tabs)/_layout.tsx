@@ -94,7 +94,7 @@ export default function TabLayout() {
         }}
       />
 
-      {/* TAB: Data mahasiswa dari Supabase (read-only) — file mahasiswa-cloud.tsx */}
+      {/* TAB: CRUD data mahasiswa di Supabase — file mahasiswa-cloud.tsx */}
       <Tabs.Screen
         name="mahasiswa-cloud"
         options={{

@@ -1,25 +1,12 @@
 /**
- * =============================================================================
- * login.tsx — Halaman Demo Login
- * =============================================================================
- *
- * Halaman ini tampil pertama kali saat aplikasi dibuka. Setelah user menekan
- * "Masuk", aplikasi mengarahkan ke tab utama (Home, Explore, Praktikum, Modul).
- * Ini demo saja: tidak ada validasi ke server; cukup tekan Masuk untuk lanjut.
- *
- * ----- Struktur file -----
- * 1. Import: router (untuk pindah halaman), useState, komponen UI (TextInput,
- *    Pressable, dll), SafeAreaView.
- * 2. LoginScreen: state untuk email & password, fungsi handleMasuk, lalu return
- *    tampilan (form + tombol Masuk).
- * 3. styles: StyleSheet buat tampilan (warna, ukuran, jarak).
- * =============================================================================
+ * login.tsx — Login dengan Supabase Auth (email + password).
+ * Tanpa konfigurasi .env: mode demo (Masuk tanpa server).
  */
 
-/* ----- Import dari expo-router: dipakai buat pindah halaman setelah login ----- */
 import { router } from 'expo-router';
 import { useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -31,77 +18,105 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-/**
- * LoginScreen — Komponen halaman login.
- * Export default = file ini "nge-export" satu komponen utama; waktu route /login
- * dibuka, Expo Router akan render komponen ini.
- */
+import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+
 export default function LoginScreen() {
-  /* ----- State: data yang bisa berubah waktu user ngetik -----
-     useState('') = nilai awal kosong. setEmail / setPassword dipanggil waktu
-     user ngetik di TextInput (onChangeText). Nilai ini dipakai di value={email}
-     dan value={password} supaya kotak isian ter-update (controlled input). */
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  /* handleMasuk: dipanggil waktu tombol "Masuk" ditekan.
-     router.replace('/(tabs)') = ganti halaman ke tab utama dan buang history
-     login dari stack, jadi user enggak bisa "back" ke layar login. */
-  const handleMasuk = () => {
+  const configured = isSupabaseConfigured();
+
+  const handleMasuk = async () => {
+    setError(null);
+    if (!configured || !supabase) {
+      router.replace('/(tabs)');
+      return;
+    }
+
+    const e = email.trim();
+    if (!e || !password) {
+      setError('Email dan password wajib diisi.');
+      return;
+    }
+
+    setLoading(true);
+    const { error: signErr } = await supabase.auth.signInWithPassword({
+      email: e,
+      password,
+    });
+    setLoading(false);
+
+    if (signErr) {
+      setError(signErr.message);
+      return;
+    }
     router.replace('/(tabs)');
   };
 
   return (
-    /* SafeAreaView = area aman (enggak kena notch atau tombol home). edges:
-       top & bottom biar konten enggak tertutup status bar / home indicator. */
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      {/* KeyboardAvoidingView: waktu keyboard muncul (user ngetik), konten
-          naik supaya form enggak kehalang. behavior 'padding' di iOS bikin
-          padding bawah; di Android sering enggak perlu (undefined). */}
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}>
-        {/* ScrollView: kalau layar kecil atau keyboard besar, user bisa scroll.
-            keyboardShouldPersistTaps="handled" = tap di luar keyboard tetap
-            dianggap "handled" jadi keyboard bisa nutup pas tap tombol Masuk. */}
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
           <View style={styles.card}>
             <Text style={styles.title}>Selamat Datang</Text>
-            <Text style={styles.subtitle}>Demo Login — isi bebas lalu tekan Masuk</Text>
+            <Text style={styles.subtitle}>
+              {configured
+                ? 'Masuk dengan akun Supabase (email terdaftar di Authentication).'
+                : 'Supabase belum dikonfigurasi — Masuk untuk demo lokal.'}
+            </Text>
 
-            {/* Input email/NIM: value dari state, onChangeText update state.
-                autoCapitalize="none" & keyboardType="email-address" bikin
-                keyboard cocok buat ngetik email. */}
             <TextInput
               style={styles.input}
-              placeholder="Email atau NIM"
+              placeholder={configured ? 'Email' : 'Email (opsional, demo)'}
               placeholderTextColor="#999"
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
               keyboardType="email-address"
               autoCorrect={false}
+              editable={!loading}
             />
-            {/* Input password: secureTextEntry = teks disembunyikan (titik-titik). */}
             <TextInput
               style={styles.input}
-              placeholder="Password"
+              placeholder={configured ? 'Password' : 'Password (opsional, demo)'}
               placeholderTextColor="#999"
               value={password}
               onChangeText={setPassword}
               secureTextEntry
+              editable={!loading}
             />
 
-            {/* Tombol Masuk: style bisa pakai fungsi (pressed) buat ubah tampilan
-                waktu ditekan (opacity). onPress panggil handleMasuk. */}
+            {error ? <Text style={styles.errText}>{error}</Text> : null}
+
+            {!configured ? (
+              <Text style={styles.hint}>
+                Untuk login sungguhan: isi <Text style={styles.mono}>EXPO_PUBLIC_SUPABASE_URL</Text> dan{' '}
+                <Text style={styles.mono}>EXPO_PUBLIC_SUPABASE_ANON_KEY</Text> di <Text style={styles.mono}>.env</Text>,
+                lalu buat user di Supabase → Authentication → Users.
+              </Text>
+            ) : null}
+
             <Pressable
-              style={({ pressed }) => [styles.btnMasuk, pressed && styles.btnPressed]}
-              onPress={handleMasuk}>
-              <Text style={styles.btnMasukText}>Masuk</Text>
+              style={({ pressed }) => [
+                styles.btnMasuk,
+                pressed && styles.btnPressed,
+                loading && styles.btnDisabled,
+              ]}
+              onPress={handleMasuk}
+              disabled={loading}>
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.btnMasukText}>Masuk</Text>
+              )}
             </Pressable>
           </View>
         </ScrollView>
@@ -110,14 +125,6 @@ export default function LoginScreen() {
   );
 }
 
-/* =============================================================================
-   STYLE — Tampilan (warna, ukuran, jarak)
-   =============================================================================
-   StyleSheet.create bikin object style yang dipakai di component. Nama property
-   (container, card, input, dll.) sama dengan yang dipakai di style={styles.xxx}.
-   flex: 1 = ambil sisa ruang. padding = jarak dalam, margin = jarak luar.
-   borderRadius = sudut membulat. shadow* & elevation = bayangan (iOS vs Android).
-   ============================================================================= */
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -167,6 +174,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     backgroundColor: '#fafafa',
   },
+  errText: {
+    color: '#b71c1c',
+    fontSize: 14,
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  hint: {
+    fontSize: 13,
+    color: '#555',
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  mono: {
+    fontFamily: 'monospace',
+    fontSize: 12,
+    color: '#333',
+  },
   btnMasuk: {
     backgroundColor: '#0a7ea4',
     paddingVertical: 16,
@@ -178,6 +202,9 @@ const styles = StyleSheet.create({
   },
   btnPressed: {
     opacity: 0.88,
+  },
+  btnDisabled: {
+    opacity: 0.7,
   },
   btnMasukText: {
     color: '#fff',

@@ -1,20 +1,20 @@
 # Belajar Expo – Pemrograman Perangkat Mobile 2
 
-Repo ini berisi **project praktikum** untuk mata kuliah **Pemrograman Perangkat Mobile 2**, pakai **Expo** dan **React Native**. Di sini kamu bisa jalankan app, lihat contoh kode, dan ikuti panduan praktikum—**Praktikum 2** (Functional Component, props, useState), **Praktikum 3** (CRUD, Login, Logout), serta **koneksi ke database cloud Supabase** (baca data mahasiswa lewat tab **Cloud**).
+Repo ini berisi **project praktikum** untuk mata kuliah **Pemrograman Perangkat Mobile 2**, pakai **Expo** dan **React Native**. Di sini kamu bisa jalankan app, lihat contoh kode, dan ikuti panduan praktikum—**Praktikum 2** (Functional Component, props, useState), **Praktikum 3** (CRUD, Login, Logout), **koneksi ke database cloud Supabase** (tab **Cloud**: CRUD ke tabel `mahasiswa`), serta **Login sungguhan** lewat **Supabase Auth** (email + password, sesi tersimpan di perangkat).
 
 ---
 
 ## Isi Repo Ini Apa Saja?
 
-Singkatnya: **satu app Expo** yang saat dibuka selalu tampil **halaman Login** dulu (demo). Setelah tap **Masuk**, kamu masuk ke **tab utama**: Home, Explore, Praktikum, Modul, **Cloud**, dan Logout.
+Singkatnya: **satu app Expo** yang saat dibuka selalu tampil **halaman Login** dulu. Jika **Supabase sudah dikonfigurasi** di `.env`, login memakai **Supabase Auth** (email + password). Jika belum, **Masuk** tetap bisa dipakai sebagai **demo lokal** (tanpa server). Setelah masuk, kamu berada di **tab utama**: Home, Explore, Praktikum, Modul, **Cloud**, dan Logout.
 
 | Tab | Fungsi singkat |
 |-----|----------------|
 | **Home / Explore** | Contoh layar dari template Expo |
 | **Praktikum** | Functional Component: Header, Card, Counter, dll. |
 | **Modul** | **CRUD data mahasiswa** di **memori lokal** (useState)—tambah, ubah, hapus, pagination; tabel atau kartu sesuai lebar layar |
-| **Cloud** | **Baca data mahasiswa** dari **Supabase** (PostgreSQL di cloud)—tabel `public.mahasiswa`; pull-to-refresh & tombol muat ulang |
-| **Logout** | Konfirmasi sebelum kembali ke halaman login |
+| **Cloud** | **CRUD data mahasiswa** di **Supabase**—tabel `public.mahasiswa`; tambah/ubah/hapus, pull-to-refresh, muat ulang |
+| **Logout** | Konfirmasi lalu **keluar sesi** (Supabase `signOut` jika tersedia) dan kembali ke login |
 
 Teori dan langkah belajarnya ada di **`doc/`**: **PRAKTIKUM_02** (Functional Component) dan **PRAKTIKUM_03** (CRUD, Login, Logout). Component praktikum 2 ada di **`components/praktikum/`**. Kalau kamu baru pertama kali pakai Expo/React Native, repo ini cocok buat starting point: struktur project rapi, ada contoh yang bisa di-run langsung, dan ada penjelasan per file biar enggak bingung "ini file buat apa sih".
 
@@ -31,13 +31,66 @@ Teori dan langkah belajarnya ada di **`doc/`**: **PRAKTIKUM_02** (Functional Com
 
 **Yang aman dipakai di app (client)**
 
-- **URL project** dan **anon public key** — memang didesain untuk dipakai di aplikasi, **asalkan** di Supabase sudah diatur **Row Level Security (RLS)** dan policy yang wajar. Di project contoh ini, policy untuk role `anon` bisa dibuat longgar untuk **pembelajaran**; untuk produksi harus diperketat.
+- **URL project** dan **anon public key** — memang didesain untuk dipakai di aplikasi, **asalkan** di Supabase sudah diatur **Row Level Security (RLS)** dan policy yang wajar. Di project contoh ini, policy mengizinkan **`anon` dan `authenticated`** (lihat `doc/supabase_mahasiswa.sql`) agar tab **Cloud** jalan baik **sebelum** maupun **sesudah** login; untuk produksi harus diperketat (misalnya per `auth.uid()`).
 
 **Yang jangan dibundel ke app**
 
 - **Secret key** (`sb_secret_...`) — hanya untuk server, Edge Function, atau skrip admin. Simpan di `.env` tanpa awalan `EXPO_PUBLIC_` dan **jangan** di-import ke layar yang di-build ke HP.
 
-File **`lib/supabase.ts`** membuat **satu klien** Supabase memakai variabel dari `.env`. Halaman **`app/(tabs)/mahasiswa-cloud.tsx`** memanggil `.from('mahasiswa').select(...)` untuk menampilkan tabel.
+File **`lib/supabase.ts`** membuat **satu klien** Supabase memakai variabel dari `.env`. Halaman **`app/(tabs)/mahasiswa-cloud.tsx`** memanggil API tabel `mahasiswa` (baca & tulis).
+
+---
+
+## Login dengan Supabase Auth (bab khusus)
+
+Bagian ini merangkum **fitur login** yang menghubungkan halaman **`app/login.tsx`** ke **Supabase Authentication**, plus **proteksi rute** dan dampaknya ke tab **Cloud**.
+
+### Apa yang berubah dibanding demo lama?
+
+| Situasi | Perilaku |
+|--------|----------|
+| **`.env` berisi** `EXPO_PUBLIC_SUPABASE_URL` dan `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Login **wajib** memakai **email + password** user yang terdaftar di Supabase (**Authentication → Users**). Sesi disimpan di HP (**AsyncStorage**) sehingga tidak perlu login ulang setiap buka app. |
+| **`.env` belum lengkap** (tanpa URL/key) | Tombol **Masuk** tetap mengarah ke tab utama (**mode demo**), sama seperti perilaku lama—berguna jika belum punya project Supabase. |
+
+### Alur dari sisi pengguna
+
+1. Buka app → layar **Login** (entry point `app/_layout.tsx`, `initialRouteName: 'login'`).
+2. Isi **email** dan **password** akun Supabase Auth → **Masuk** → `signInWithPassword`.
+3. Jika sukses, app pindah ke **`/(tabs)`**. Jika gagal (salah password, user tidak ada), pesan error dari server ditampilkan di form.
+4. **Logout** (tab bawah): dialog konfirmasi → **`auth.signOut()`** → kembali ke **`/login`**.
+
+### Alur dari sisi kode (file utama)
+
+| File | Peran |
+|------|--------|
+| **`lib/supabase.ts`** | `createClient` dengan **`AsyncStorage`**, **`persistSession: true`**, **`autoRefreshToken: true`** agar token login tersimpan di perangkat. |
+| **`app/login.tsx`** | Memanggil **`supabase.auth.signInWithPassword({ email, password })`** bila Supabase terkonfigurasi; indikator loading; pesan error. |
+| **`app/_layout.tsx`** | **`getSession`** saat startup + **`onAuthStateChange`**: jika **ada sesi** tapi rute di **`/login`** → alihkan ke **`/(tabs)`**; jika **tidak ada sesi** tapi user di grup **`(tabs)`** → alihkan ke **`/login`**. Overlay singkat sampai sesi selesai dibaca dari storage. |
+| **`app/(tabs)/logout.tsx`** | Setelah konfirmasi, **`supabase.auth.signOut()`** (jika klien ada) lalu **`router.replace('/login')`**. |
+
+### Menyiapkan akun di Supabase Dashboard
+
+1. **Authentication** → **Users** → **Add user** → isi **email** dan **password** (bukan NIM; Auth standar memakai email).
+2. Pastikan project memakai URL + anon key yang sama dengan yang ada di **`.env`** lokal.
+
+### Tab Cloud setelah login (penting: RLS)
+
+JWT pengguna yang sudah login memakai role **`authenticated`**, **bukan** `anon`. Kalau di database policy RLS **hanya** `TO anon`, query ke tabel `mahasiswa` bisa mengembalikan **kosong** walau data ada.
+
+**Solusi:** jalankan skrip SQL yang mengizinkan **keduanya** (`anon` dan `authenticated`):
+
+- **`doc/supabase_mahasiswa.sql`** — skrip lengkap (tabel + policy terbaru `dev_mahasiswa_*_clients`).
+- **`doc/supabase_mahasiswa_rls_fix_login.sql`** — **hanya perbaikan RLS** untuk project yang sudah punya tabel; tempel di **SQL Editor** → **Run** (aman diulang).
+
+Di **`app/(tabs)/mahasiswa-cloud.tsx`**, sebelum `select`, app memanggil **`getSession()`** agar klien sudah memasang JWT; jika ada error hak akses, teks bantuan mengarah ke skrip di atas.
+
+### Dependensi tambahan
+
+- **`@react-native-async-storage/async-storage`** — penyimpanan sesi auth (terpasang lewat `npx expo install @react-native-async-storage/async-storage`).
+
+### Ringkasan satu kalimat
+
+**Login** memakai **Supabase Auth** + **sesi di AsyncStorage**; **root layout** menjaga agar tab hanya bisa diakses saat login; **logout** membersihkan sesi; **Cloud** butuh policy RLS untuk **`authenticated`** (pakai skrip SQL di atas).
 
 ---
 
@@ -106,14 +159,18 @@ npm start
 
 Setelah mengubah `.env`, **restart** Metro (`Ctrl+C` lalu `npm start` lagi) agar variabel `EXPO_PUBLIC_*` terbaca.
 
-### 5) Coba tab Cloud
+### 5) Coba tab Cloud (setelah login)
 
-Login → buka tab **Cloud**. Kalau konfigurasi benar, muncul baris dari tabel `mahasiswa`. Tarik layar ke bawah (**pull to refresh**) atau tap **Muat ulang** untuk ambil data lagi.
+Login dengan user Auth → buka tab **Cloud**. Kalau konfigurasi benar, muncul baris dari tabel `mahasiswa`. Tarik layar ke bawah (**pull to refresh**) atau tap **Muat ulang**. Kamu bisa **tambah / ubah / hapus** data dari app.
+
+**Kalau Cloud kosong setelah login (tanpa error)**
+
+- Jalankan **`doc/supabase_mahasiswa_rls_fix_login.sql`** di SQL Editor (policy harus **`anon` + `authenticated`**).
 
 **Kalau muncul error**
 
 - Pastikan SQL di langkah (2) sukses dan nama tabel **`mahasiswa`** persis sama.
-- Pastikan **RLS + policy** mengizinkan `anon` untuk `SELECT` (sesuai skrip di `doc/supabase_mahasiswa.sql` untuk mode pembelajaran).
+- Pastikan **RLS + policy** sesuai skrip terbaru di `doc/supabase_mahasiswa.sql` (atau file fix di atas).
 - Cek internet dan URL/key di `.env`.
 
 ---
@@ -165,7 +222,7 @@ Nanti muncul QR code dan menu di terminal. Kamu bisa:
 
 Kalau pakai **Expo Go** di HP, pastikan HP dan laptop satu jaringan WiFi, lalu scan QR code yang muncul.
 
-**Alur app:** Buka app → **Login** (isi form bebas, tap Masuk) → **Tab utama** (Home, Explore, Praktikum, Modul, **Cloud**, Logout). Coba **Modul** untuk CRUD lokal, **Cloud** untuk data dari Supabase, dan **Logout** untuk konfirmasi sebelum keluar.
+**Alur app:** Buka app → **Login** (dengan Supabase: email + password user Auth; tanpa `.env`: isian bebas lalu Masuk demo) → **Tab utama**. Coba **Modul** (CRUD lokal), **Cloud** (CRUD Supabase), dan **Logout** (hapus sesi + kembali ke login).
 
 ---
 
@@ -177,15 +234,15 @@ Agar enggak bingung "file mana buat apa", ini ringkasannya:
 Belajar-EXPO-Pemrograman-Perangkat-Mobile-2/
 ├── app/                         # Halaman-halaman app (Expo Router)
 │   ├── _layout.tsx              # Root layout: Stack (login → tabs → modal), initialRouteName login
-│   ├── login.tsx                # Halaman Login (pertama kali dibuka) — demo, Masuk → tab utama
+│   ├── login.tsx                # Login — Supabase Auth (email/password) jika .env ada; else demo Masuk
 │   └── (tabs)/                  # Tab bawah: Home, Explore, Praktikum, Modul, Cloud, Logout
 │       ├── _layout.tsx          # Definisi tab (ikon, judul)
 │       ├── index.tsx            # Tab "Home"
 │       ├── explore.tsx          # Tab "Explore"
 │       ├── praktikum.tsx        # Tab "Praktikum" — Functional Component (Header, Card, Counter, dll.)
 │       ├── modul.tsx            # Tab "Modul" — CRUD data mahasiswa lokal (tambah/ubah/hapus, pagination)
-│       ├── mahasiswa-cloud.tsx  # Tab "Cloud" — baca tabel mahasiswa dari Supabase
-│       └── logout.tsx           # Tab "Logout" — konfirmasi → kembali ke login
+│       ├── mahasiswa-cloud.tsx  # Tab "Cloud" — CRUD tabel mahasiswa di Supabase
+│       └── logout.tsx           # Tab "Logout" — signOut + kembali ke login
 │
 ├── lib/
 │   └── supabase.ts              # Klien Supabase (URL + anon key dari .env)
@@ -206,7 +263,8 @@ Belajar-EXPO-Pemrograman-Perangkat-Mobile-2/
 │   ├── PRAKTIKUM_03_CRUD_Login_Logout.md
 │   ├── Panduan_Praktikum_Integrasi_Supabase_Cloud.md  # Langkah A–F, file baru/ubah, checklist
 │   ├── NARASI_LMS_Integrasi_Supabase.md                 # Narasi ringkas untuk posting LMS
-│   └── supabase_mahasiswa.sql   # Skrip SQL untuk buat tabel di Supabase (SQL Editor)
+│   ├── supabase_mahasiswa.sql              # Skrip SQL: tabel + RLS (anon + authenticated)
+│   └── supabase_mahasiswa_rls_fix_login.sql # Hanya perbaikan RLS setelah pakai Supabase Auth
 │
 ├── .env.example                 # Contoh variabel lingkungan (aman di-commit; salin ke .env)
 ├── package.json                 # Daftar dependency & script (npm start, dll.)
@@ -253,7 +311,7 @@ Materi fokus ke **CRUD** (Create, Read, Update, Delete), **Login** sebagai halam
 
 **Yang bisa kamu coba di app**
 
-1. **Login** — Saat app dibuka, tampil form Login. Isi email/NIM & password (bebas), tap **Masuk** → masuk ke tab utama. (Demo: tidak ada cek ke server.)
+1. **Login** — Form email + password. Dengan Supabase terkonfigurasi: **signInWithPassword** ke server. Tanpa `.env`: **Masuk** demo ke tab utama.
 2. **CRUD di tab Modul** — Data di **state lokal**. Tampil tabel/kartu. **+ Tambah Mahasiswa** → form modal → Simpan. **Ubah** / **Hapus** per baris; hapus pakai konfirmasi Alert. Pagination 10 data per halaman.
 3. **Logout** — Tap tab **Logout** → dialog **"Yakin mau logout?"** → **Batal** atau **Ya, Logout** (kembali ke login).
 
@@ -271,7 +329,7 @@ Gunakan checklist ini supaya belajarnya runut:
 2. Buat **project Supabase**, jalankan **`doc/supabase_mahasiswa.sql`**, cek data di Table Editor.
 3. Isi **`.env`** dari **`.env.example`**, restart Expo.
 4. Baca **`lib/supabase.ts`** — bagaimana klien dibuat.
-5. Baca **`app/(tabs)/mahasiswa-cloud.tsx`** — `select`, `order`, `RefreshControl`, tampilan tabel/kartu.
+5. Baca **`app/(tabs)/mahasiswa-cloud.tsx`** — `select` / `insert` / `update` / `delete`, `RefreshControl`, tabel/kartu.
 6. (Lanjutan) Baca dokumentasi Supabase untuk **insert/update/delete** dan **RLS** sebelum menghubungkan write ke client.
 
 ---
@@ -294,7 +352,8 @@ Gunakan checklist ini supaya belajarnya runut:
 - **Expo Router ~6** — navigasi based file (folder `app/` = route)
 - **React 19** & **React Native 0.81** — UI
 - **TypeScript** — typings biar kode lebih aman dan enak dibaca
-- **Supabase (JS client)** — paket npm **`@supabase/supabase-js`**; dipakai di `lib/supabase.ts` untuk `createClient(...)`. Terpasang otomatis saat `npm install` karena tercantum di `package.json`.
+- **Supabase (JS client)** — **`@supabase/supabase-js`** + **Supabase Auth** (login) + **PostgREST** (tabel `mahasiswa`)
+- **AsyncStorage** — **`@react-native-async-storage/async-storage`** untuk persist sesi login
 
 ---
 
@@ -316,10 +375,10 @@ Kalau repo ini dipakai bareng (misalnya satu kelas), biasakan pull dulu sebelum 
 
 ## Ringkasan
 
-- Repo ini = **project Expo** + **Praktikum 2** (Functional Component) + **Praktikum 3** (CRUD lokal, Login, Logout) + **Supabase** (baca data di tab **Cloud**) + **panduan di `doc/`**.
-- **Alur app:** **Login** → tab utama (**Home, Explore, Praktikum, Modul, Cloud, Logout**). **Modul** = CRUD lokal; **Cloud** = data dari Supabase.
-- **Setup Cloud:** Supabase project → SQL **`doc/supabase_mahasiswa.sql`** → **`.env`** → `npm install` → `npm start`.
-- Jalanin: **clone → npm install → (isi .env jika pakai Cloud) → npm start** → pilih platform atau scan QR.
-- Belajar: **tab Praktikum** + **`doc/PRAKTIKUM_02_...`**; **tab Modul & Logout** + **`doc/PRAKTIKUM_03_...`**; **tab Cloud** + **`lib/supabase.ts`**, **`mahasiswa-cloud.tsx`**, **`doc/supabase_mahasiswa.sql`**.
+- Repo ini = **project Expo** + **Praktikum 2** + **Praktikum 3** + **Supabase** (CRUD **Cloud** + **Login Auth**) + **panduan di `doc/`**.
+- **Alur app:** **Login** (Auth atau demo) → tab utama. **Modul** = CRUD lokal; **Cloud** = CRUD Supabase; **Logout** = `signOut`.
+- **Setup:** Supabase project → SQL **`doc/supabase_mahasiswa.sql`** (atau **`doc/supabase_mahasiswa_rls_fix_login.sql`** jika Cloud kosong setelah login) → buat user di **Authentication** → **`.env`** → `npm install` → `npm start`.
+- Jalanin: **clone → npm install → (isi .env) → npm start** → pilih platform atau scan QR.
+- Belajar login: **`README.md` (bab Login Supabase Auth)**, **`app/login.tsx`**, **`app/_layout.tsx`**, **`lib/supabase.ts`**; Cloud + SQL seperti di atas.
 
 Semoga bantu belajarnya. Kalau ada yang kurang jelas, coba run app-nya dulu, baru baca panduan sambil lihat kode—sering itu yang bikin "oh, ternyata gitu"-nya muncul.
