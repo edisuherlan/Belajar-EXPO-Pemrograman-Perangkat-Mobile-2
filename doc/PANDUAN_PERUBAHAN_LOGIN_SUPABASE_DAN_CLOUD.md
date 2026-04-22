@@ -170,6 +170,18 @@ atau, jika baris dependency belum sinkron:
 npx expo install @react-native-async-storage/async-storage
 ```
 
+### Yang *tidak* perlu dilakukan (kode)
+
+- **Tidak** menambah plugin Babel, mengubah `babel.config.js` khusus AsyncStorage/Auth, atau menambah plugin di **`app.json` / `app.config.*`** untuk fitur login ini — tidak diperlukan oleh project ini.
+- **Tidak** perlu meng-import AsyncStorage di root `App` atau file global lain; cukup pemakaian di **`lib/supabase.ts`** seperti yang sudah ada.
+
+### Expo Go vs development build
+
+| Cara menjalankan | Catatan singkat |
+|------------------|------------------|
+| **Expo Go** (pindai QR dari `npm start`) | Setelah `npm install`, umumnya cukup. Alur yang disarankan untuk praktikum. |
+| **Development build** / APK-IPA sendiri (`expo prebuild`, EAS Build, `expo run:*`) | Setelah `git pull` menarik dependency **native** baru, ikuti pesan CLI: sering perlu **build ulang** binary agar modul seperti AsyncStorage ter-link dengan benar. |
+
 ---
 
 ## 6. Panduan langkah demi langkah (untuk tim / mahasiswa)
@@ -258,6 +270,7 @@ Gunakan daftar ini untuk memastikan integrasi berhasil.
 | **Network request failed** | URL salah, tidak ada internet, project Supabase sleep | Cek URL, jaringan, buka dashboard project |
 | Login selalu demo | Variabel **`EXPO_PUBLIC_*`** tidak terbaca | Pastikan `.env` ada, nilai benar, **restart** Metro |
 | Error modul `AsyncStorage` | Dependency belum terpasang | `npm install` / `npx expo install @react-native-async-storage/async-storage` |
+| Error modul `AsyncStorage` di **dev build** lama | Binary tidak berisi native module versi terbaru | `git pull` → `npm install` → **build ulang** dev client (`expo run:android` / `run:ios` atau EAS) |
 | Loop redirect atau layar putih | Navigator belum siap | Sudah ditangani dengan `useRootNavigationState` + `authReady`; pastikan pakai commit terbaru |
 
 ---

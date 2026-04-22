@@ -88,6 +88,14 @@ Di **`app/(tabs)/mahasiswa-cloud.tsx`**, sebelum `select`, app memanggil **`getS
 
 - **`@react-native-async-storage/async-storage`** — penyimpanan sesi auth (terpasang lewat `npx expo install @react-native-async-storage/async-storage`).
 
+### Kode: tidak perlu plugin atau import global
+
+Tidak ada konfigurasi **Babel**, **plugin di `app.json` / `app.config`**, atau **import global** tambahan khusus AsyncStorage atau Supabase Auth. **`lib/supabase.ts`** sudah meng-import AsyncStorage dan meneruskannya ke `createClient`; layar lain cukup memakai `import` dari `@/lib/supabase` seperti biasa.
+
+### Expo Go vs development build
+
+Untuk **Expo Go** (scan QR) + **`npm install`** + **`npm start`**, AsyncStorage biasanya **langsung jalan** — itu alur default praktikum. Jika kamu memakai **development build** / binary sendiri (`npx expo prebuild`, EAS Build, dll.) dan setelah `git pull` muncul error modul native, lakukan **build ulang** aplikasi sesuai petunjuk Expo CLI untuk SDK yang dipakai.
+
 ### Ringkasan satu kalimat
 
 **Login** memakai **Supabase Auth** + **sesi di AsyncStorage**; **root layout** menjaga agar tab hanya bisa diakses saat login; **logout** membersihkan sesi; **Cloud** butuh policy RLS untuk **`authenticated`** (pakai skrip SQL di atas).
