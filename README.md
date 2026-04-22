@@ -92,6 +92,8 @@ Di **`app/(tabs)/mahasiswa-cloud.tsx`**, sebelum `select`, app memanggil **`getS
 
 **Login** memakai **Supabase Auth** + **sesi di AsyncStorage**; **root layout** menjaga agar tab hanya bisa diakses saat login; **logout** membersihkan sesi; **Cloud** butuh policy RLS untuk **`authenticated`** (pakai skrip SQL di atas).
 
+**Panduan detail (per file, langkah A–G, checklist uji, troubleshooting):** [`doc/PANDUAN_PERUBAHAN_LOGIN_SUPABASE_DAN_CLOUD.md`](doc/PANDUAN_PERUBAHAN_LOGIN_SUPABASE_DAN_CLOUD.md)
+
 ---
 
 ## Setup Supabase (Langkah demi Langkah)
@@ -263,8 +265,9 @@ Belajar-EXPO-Pemrograman-Perangkat-Mobile-2/
 │   ├── PRAKTIKUM_03_CRUD_Login_Logout.md
 │   ├── Panduan_Praktikum_Integrasi_Supabase_Cloud.md  # Langkah A–F, file baru/ubah, checklist
 │   ├── NARASI_LMS_Integrasi_Supabase.md                 # Narasi ringkas untuk posting LMS
-│   ├── supabase_mahasiswa.sql              # Skrip SQL: tabel + RLS (anon + authenticated)
-│   └── supabase_mahasiswa_rls_fix_login.sql # Hanya perbaikan RLS setelah pakai Supabase Auth
+│   ├── supabase_mahasiswa.sql                        # Skrip SQL: tabel + RLS (anon + authenticated)
+│   ├── supabase_mahasiswa_rls_fix_login.sql         # Hanya perbaikan RLS setelah pakai Supabase Auth
+│   └── PANDUAN_PERUBAHAN_LOGIN_SUPABASE_DAN_CLOUD.md # Panduan terstruktur: login, rute, RLS, Cloud
 │
 ├── .env.example                 # Contoh variabel lingkungan (aman di-commit; salin ke .env)
 ├── package.json                 # Daftar dependency & script (npm start, dll.)
